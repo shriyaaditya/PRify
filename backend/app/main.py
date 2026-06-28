@@ -1,5 +1,14 @@
+import logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+
+from app.api import github
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,6 +23,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.include_router(github.router, prefix="/api/github", tags=["github"])
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
