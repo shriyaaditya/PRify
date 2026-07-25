@@ -32,6 +32,16 @@ class ReviewRepository(BaseRepository[Review, ReviewCreate, ReviewUpdate]):
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_by_pull_request_and_commit_sha(
+        self, db: AsyncSession, *, pull_request_id: uuid.UUID, commit_sha: str
+    ) -> Optional[Review]:
+        stmt = select(self.model).where(
+            self.model.pull_request_id == pull_request_id,
+            self.model.commit_sha == commit_sha
+        )
+        result = await db.execute(stmt)
+        return result.scalars().first()
+
 
 class ReviewFindingRepository(BaseRepository[ReviewFinding, ReviewFindingCreate, ReviewFindingUpdate]):
     async def get_by_review(

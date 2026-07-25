@@ -1,12 +1,13 @@
 import logging
+import json
 from fastapi import APIRouter, Request, Response, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.github.webhook import verify_signature
-from app.github.schemas import WebhookPayload
-from app.github.service import webhook_service
-from pydantic import ValidationError
+from app.workflows.github_review.graph import graph
+from app.workflows.github_review.state import GitHubReviewState
+from langchain_core.runnables import RunnableConfig
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -32,11 +33,6 @@ async def github_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         logger.warning("Missing X-GitHub-Event header")
         return Response(status_code=400, content="Missing X-GitHub-Event header")
 
-    # We only care about pull_request events for now
-    if event != "pull_request":
-        logger.info(f"Ignored non-pull-request event: {event}")
-        return Response(status_code=200, content=f"Event {event} ignored")
-
     # 3. Parse JSON payload
     try:
         data = await request.json()
@@ -44,25 +40,35 @@ async def github_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         logger.error(f"Failed to parse JSON body: {e}")
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-    try:
-        payload = WebhookPayload(**data)
-    except ValidationError as e:
-        logger.error(f"Payload validation error: {e}")
-        # Return 200 to prevent GitHub from retrying invalid format permanently,
-        # or 400 depending on preference. GitHub recommends 2xx if received successfully.
-        raise HTTPException(status_code=400, detail="Invalid payload structure")
+    # 4. Initialize Graph State
+    action = data.get("action")
+    installation_id = data.get("installation", {}).get("id")
+    if installation_id:
+        installation_id = str(installation_id)
 
-    # 4. Filter actions
-    allowed_actions = {"opened", "synchronize", "reopened"}
-    if payload.action not in allowed_actions:
-        logger.info(f"Ignored pull_request action: {payload.action}")
-        return Response(status_code=200, content=f"Action {payload.action} ignored")
+    initial_state = GitHubReviewState(
+        event_type=event,
+        action=action,
+        installation_id=installation_id,
+        raw_payload=data
+    )
 
-    # 5. Process Payload
+    # 5. Invoke LangGraph Workflow
+    config = RunnableConfig(configurable={"db_session": db})
     try:
-        await webhook_service.process_pull_request_event(db, payload)
+        final_state = await graph.ainvoke(initial_state, config=config)
     except Exception as e:
-        logger.exception(f"Error processing pull request event: {e}")
+        logger.exception(f"Error during LangGraph execution: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+    # 6. Evaluate Workflow Results
+    if final_state.get("errors"):
+        logger.error(f"Workflow finished with errors: {final_state['errors']}")
+        # Return 200 so GitHub does not retry continuously on validation/logic failures,
+        # but could also return 400 depending on the design pattern.
+        # Following typical webhook patterns, returning 200 if we successfully processed it,
+        # even if it was a validation rejection or skipping.
+        return {"status": "error", "details": final_state["errors"]}
+
     return {"status": "ok"}
+

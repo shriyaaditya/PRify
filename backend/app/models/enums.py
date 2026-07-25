@@ -26,4 +26,5 @@ class DocumentType(str, enum.Enum):
     ADR = "ADR"
     API_DOCS = "API_DOCS"
     GUIDELINES = "GUIDELINES"
+    TEST_FILE = "TEST_FILE"
     OTHER = "OTHER"

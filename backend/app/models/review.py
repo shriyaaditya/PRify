@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
 
-from sqlalchemy import String, DateTime, ForeignKey, Integer, Float, Text, Enum
+from sqlalchemy import String, DateTime, ForeignKey, Integer, Float, Text, Enum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -12,10 +12,15 @@ from app.models.enums import ReviewStatus, Severity, AgentStatus
 
 class Review(Base):
     __tablename__ = "reviews"
+    __table_args__ = (
+        UniqueConstraint("pull_request_id", "commit_sha", name="uq_reviews_pull_request_commit_sha"),
+    )
 
     pull_request_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("pull_requests.id", ondelete="CASCADE"), nullable=False
     )
+    commit_sha: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    github_review_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     status: Mapped[ReviewStatus] = mapped_column(
         Enum(ReviewStatus, name="review_status"), default=ReviewStatus.PENDING
     )
