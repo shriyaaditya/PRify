@@ -73,6 +73,8 @@ class AgentRunResponse(AgentRunBase):
 # --- Review Schemas ---
 class ReviewBase(BaseModel):
     status: ReviewStatus = ReviewStatus.PENDING
+    commit_sha: Optional[str] = None
+    github_review_id: Optional[str] = None
     overall_score: Optional[float] = None
     overall_summary: Optional[str] = None
     execution_time_ms: Optional[int] = None
@@ -84,6 +86,8 @@ class ReviewCreate(ReviewBase):
 
 class ReviewUpdate(BaseModel):
     status: Optional[ReviewStatus] = None
+    commit_sha: Optional[str] = None
+    github_review_id: Optional[str] = None
     overall_score: Optional[float] = None
     overall_summary: Optional[str] = None
     execution_time_ms: Optional[int] = None

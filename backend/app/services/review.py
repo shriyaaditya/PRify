@@ -23,6 +23,13 @@ class ReviewService:
             db, pull_request_id=pull_request_id, skip=skip, limit=limit
         )
 
+    async def get_by_pull_request_and_commit_sha(
+        self, db: AsyncSession, pull_request_id: uuid.UUID, commit_sha: str
+    ) -> Optional[Review]:
+        return await review_repo.review.get_by_pull_request_and_commit_sha(
+            db, pull_request_id=pull_request_id, commit_sha=commit_sha
+        )
+
     async def create_review(self, db: AsyncSession, review_in: ReviewCreate) -> Review:
         return await review_repo.review.create(db, obj_in=review_in)
 
