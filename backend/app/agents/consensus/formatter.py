@@ -1,6 +1,8 @@
 from typing import List
-from app.agents.base.result import AgentResult
+
 from app.agents.base.context import ReviewContext
+from app.agents.base.result import AgentResult
+
 
 class ConsensusContextFormatter:
     """
@@ -13,7 +15,7 @@ class ConsensusContextFormatter:
         cls,
         agent_results: List[AgentResult],
         context: ReviewContext,
-        max_patch_chars_per_file: int = 1500
+        max_patch_chars_per_file: int = 1500,
     ) -> str:
         formatted_parts = []
 
@@ -21,16 +23,26 @@ class ConsensusContextFormatter:
         formatted_parts.append("### Pull Request Context")
         formatted_parts.append(f"PR Title: {context.pull_request.title}")
         if context.pull_request.description:
-            formatted_parts.append(f"PR Description: {context.pull_request.description}")
+            formatted_parts.append(
+                f"PR Description: {context.pull_request.description}"
+            )
 
         # 2. Changed Code Files (Minimal diff for evidence verification)
-        formatted_parts.append("\n### Changed Files (Diff Snippets for Evidence Verification)")
+        formatted_parts.append(
+            "\n### Changed Files (Diff Snippets for Evidence Verification)"
+        )
         if context.changed_files:
             for cf in context.changed_files[:10]:
-                status_str = getattr(cf, 'status', 'modified')
-                formatted_parts.append(f"--- File: {cf.filename} (Status: {status_str}) ---")
-                if hasattr(cf, 'patch') and cf.patch:
-                    patch = cf.patch[:max_patch_chars_per_file] + "\n...[truncated]" if len(cf.patch) > max_patch_chars_per_file else cf.patch
+                status_str = getattr(cf, "status", "modified")
+                formatted_parts.append(
+                    f"--- File: {cf.filename} (Status: {status_str}) ---"
+                )
+                if hasattr(cf, "patch") and cf.patch:
+                    patch = (
+                        cf.patch[:max_patch_chars_per_file] + "\n...[truncated]"
+                        if len(cf.patch) > max_patch_chars_per_file
+                        else cf.patch
+                    )
                     formatted_parts.append(f"Patch:\n```\n{patch}\n```")
         else:
             formatted_parts.append("No changed files provided in context.")
@@ -41,7 +53,9 @@ class ConsensusContextFormatter:
             formatted_parts.append("No specialist agent results were provided.")
         else:
             total_findings = sum(len(ar.findings) for ar in agent_results)
-            formatted_parts.append(f"Total Specialist Findings Received: {total_findings}\n")
+            formatted_parts.append(
+                f"Total Specialist Findings Received: {total_findings}\n"
+            )
 
             for ar in agent_results:
                 formatted_parts.append(f"=== Agent: {ar.agent_name} ===")

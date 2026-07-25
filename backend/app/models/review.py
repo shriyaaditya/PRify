@@ -1,23 +1,39 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import String, DateTime, ForeignKey, Integer, Float, Text, Enum, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.enums import ReviewStatus, Severity, AgentStatus
+from app.models.enums import AgentStatus, ReviewStatus, Severity
+
+if TYPE_CHECKING:
+    from app.models.pull_request import PullRequest
 
 
 class Review(Base):
     __tablename__ = "reviews"
     __table_args__ = (
-        UniqueConstraint("pull_request_id", "commit_sha", name="uq_reviews_pull_request_commit_sha"),
+        UniqueConstraint(
+            "pull_request_id", "commit_sha", name="uq_reviews_pull_request_commit_sha"
+        ),
     )
 
     pull_request_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pull_requests.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("pull_requests.id", ondelete="CASCADE"),
+        nullable=False,
     )
     commit_sha: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     github_review_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -33,7 +49,9 @@ class Review(Base):
     )
 
     # Relationships
-    pull_request: Mapped["PullRequest"] = relationship("PullRequest", back_populates="reviews")
+    pull_request: Mapped["PullRequest"] = relationship(
+        "PullRequest", back_populates="reviews"
+    )
     findings: Mapped[List["ReviewFinding"]] = relationship(
         "ReviewFinding", back_populates="review", cascade="all, delete-orphan"
     )
@@ -75,8 +93,12 @@ class AgentRun(Base):
     tokens_used: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     model_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Relationships
     review: Mapped["Review"] = relationship("Review", back_populates="agent_runs")

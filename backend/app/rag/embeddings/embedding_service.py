@@ -1,12 +1,14 @@
-import os
 from typing import List
+
 from langchain_openai import OpenAIEmbeddings
+
 
 class EmbeddingService:
     """
     Abstractions around embedding generation.
     Supports future expansion to local models or other cloud providers.
     """
+
     def __init__(self, model_name: str = "text-embedding-3-small"):
         # Relies on OPENAI_API_KEY being present in environment
         self._embedder = OpenAIEmbeddings(model=model_name)

@@ -1,10 +1,12 @@
 import enum
 
+
 class ReviewStatus(str, enum.Enum):
     PENDING = "Pending"
     RUNNING = "Running"
     COMPLETED = "Completed"
     FAILED = "Failed"
+
 
 class Severity(str, enum.Enum):
     CRITICAL = "Critical"
@@ -13,11 +15,13 @@ class Severity(str, enum.Enum):
     LOW = "Low"
     INFO = "Info"
 
+
 class AgentStatus(str, enum.Enum):
     PENDING = "Pending"
     RUNNING = "Running"
     COMPLETED = "Completed"
     FAILED = "Failed"
+
 
 class DocumentType(str, enum.Enum):
     README = "README"
@@ -27,4 +31,5 @@ class DocumentType(str, enum.Enum):
     API_DOCS = "API_DOCS"
     GUIDELINES = "GUIDELINES"
     TEST_FILE = "TEST_FILE"
+    SOURCE_CODE = "SOURCE_CODE"
     OTHER = "OTHER"

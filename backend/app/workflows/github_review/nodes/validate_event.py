@@ -1,8 +1,13 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 from langchain_core.runnables import RunnableConfig
+
 from app.workflows.github_review.state import GitHubReviewState
 
-async def validate_event(state: GitHubReviewState, config: RunnableConfig) -> Dict[str, Any]:
+
+async def validate_event(
+    state: GitHubReviewState, config: RunnableConfig
+) -> Dict[str, Any]:
     """
     Validate the incoming GitHub event and payload.
     Ensures that the event is supported and extracts necessary information.
@@ -16,7 +21,7 @@ async def validate_event(state: GitHubReviewState, config: RunnableConfig) -> Di
             errors.append(f"Unsupported event type: {state.event_type}")
             logs.append("Validation failed: Unsupported event")
             return {"errors": errors, "logs": logs}
-            
+
         allowed_actions = {"opened", "synchronize", "reopened"}
         if state.action not in allowed_actions:
             errors.append(f"Unsupported pull_request action: {state.action}")
@@ -25,7 +30,7 @@ async def validate_event(state: GitHubReviewState, config: RunnableConfig) -> Di
 
         if "repository" not in state.raw_payload:
             errors.append("Missing 'repository' in payload")
-        
+
         if "pull_request" not in state.raw_payload:
             errors.append("Missing 'pull_request' in payload")
 

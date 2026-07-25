@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import ReviewStatus, Severity, AgentStatus
+from app.models.enums import AgentStatus, ReviewStatus, Severity
 
 
 # --- ReviewFinding Schemas ---
@@ -97,7 +97,7 @@ class ReviewResponse(ReviewBase):
     id: uuid.UUID
     pull_request_id: uuid.UUID
     created_at: datetime
-    
+
     findings: List[ReviewFindingResponse] = []
     agent_runs: List[AgentRunResponse] = []
 

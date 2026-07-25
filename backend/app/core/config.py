@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "PRify"
     OPENAI_API_KEY: str = ""
@@ -13,6 +14,10 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: str = ""
     JWT_SECRET: str = "changeme"
 
+    SEMGREP_RULES: str = "p/security-audit"
+    SEMGREP_TIMEOUT_SECONDS: int = 30
+
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True)
+
 
 settings = Settings()

@@ -1,7 +1,9 @@
 import re
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any, Dict, List
+
 from app.agents.consensus.models import ConsensusFinding, ConsensusReviewResult
 from app.parsers.tree_sitter.models import ChangedFile
+
 
 class GitHubReviewFormatter:
     """
@@ -50,7 +52,11 @@ class GitHubReviewFormatter:
     @classmethod
     def format_finding_body(cls, finding: ConsensusFinding) -> str:
         """Format individual finding into GitHub Markdown."""
-        conf_pct = int(round(finding.confidence * 100)) if finding.confidence is not None else 0
+        conf_pct = (
+            int(round(finding.confidence * 100))
+            if finding.confidence is not None
+            else 0
+        )
         cat_str = finding.category.upper() if finding.category else "GENERAL"
 
         body = (
@@ -70,7 +76,7 @@ class GitHubReviewFormatter:
     def format_review_body(
         cls,
         consensus_result: ConsensusReviewResult,
-        unmapped_findings: List[ConsensusFinding]
+        unmapped_findings: List[ConsensusFinding],
     ) -> str:
         """Construct overall review summary markdown for the GitHub PR review."""
         if not consensus_result.findings or len(consensus_result.findings) == 0:
@@ -102,24 +108,28 @@ class GitHubReviewFormatter:
             f"- **Critical:** {severity_counts['CRITICAL']}",
             f"- **High:** {severity_counts['HIGH']}",
             f"- **Medium:** {severity_counts['MEDIUM']}",
-            f"- **Low:** {severity_counts['LOW']}\n"
+            f"- **Low:** {severity_counts['LOW']}\n",
         ]
 
         if unmapped_findings:
             parts.append("### 📌 Additional Findings (File / Global Context)")
             for idx, finding in enumerate(unmapped_findings, 1):
                 line_str = f":{finding.line_number}" if finding.line_number else ""
-                file_str = f"`{finding.file_path}{line_str}`" if finding.file_path else "`Repository Scope`"
+                file_str = (
+                    f"`{finding.file_path}{line_str}`"
+                    if finding.file_path
+                    else "`Repository Scope`"
+                )
                 formatted_finding = cls.format_finding_body(finding)
-                parts.append(f"#### Finding #{idx}: {finding.title} ({file_str})\n{formatted_finding}\n")
+                parts.append(
+                    f"#### Finding #{idx}: {finding.title} ({file_str})\n{formatted_finding}\n"
+                )
 
         return "\n".join(parts)
 
     @classmethod
     def format_github_review_payload(
-        cls,
-        consensus_result: ConsensusReviewResult,
-        changed_files: List[ChangedFile]
+        cls, consensus_result: ConsensusReviewResult, changed_files: List[ChangedFile]
     ) -> Dict[str, Any]:
         """
         Parses findings, maps valid inline line numbers to RIGHT-side patch lines,
@@ -138,21 +148,24 @@ class GitHubReviewFormatter:
 
                 # Check if file exists in diff patch
                 cf = files_map.get(file_path) if file_path else None
-                if cf and cf.patch and line_num and cls.is_line_in_diff(cf.patch, line_num):
-                    inline_comments.append({
-                        "path": file_path,
-                        "line": line_num,
-                        "side": "RIGHT",
-                        "body": cls.format_finding_body(finding)
-                    })
+                if (
+                    cf
+                    and cf.patch
+                    and line_num
+                    and cls.is_line_in_diff(cf.patch, line_num)
+                ):
+                    inline_comments.append(
+                        {
+                            "path": file_path,
+                            "line": line_num,
+                            "side": "RIGHT",
+                            "body": cls.format_finding_body(finding),
+                        }
+                    )
                 else:
                     # Fallback to summary body
                     unmapped_findings.append(finding)
 
         body = cls.format_review_body(consensus_result, unmapped_findings)
 
-        return {
-            "body": body,
-            "event": "COMMENT",
-            "comments": inline_comments
-        }
+        return {"body": body, "event": "COMMENT", "comments": inline_comments}

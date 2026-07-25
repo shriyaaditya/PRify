@@ -1,15 +1,17 @@
 import uuid
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import IndexedDocument
-from app.schemas.document import IndexedDocumentCreate, IndexedDocumentUpdate
 from app.repositories import document as doc_repo
+from app.schemas.document import IndexedDocumentCreate, IndexedDocumentUpdate
 
 
 class DocumentService:
-    async def get_document(self, db: AsyncSession, doc_id: uuid.UUID) -> Optional[IndexedDocument]:
+    async def get_document(
+        self, db: AsyncSession, doc_id: uuid.UUID
+    ) -> Optional[IndexedDocument]:
         return await doc_repo.document.get(db, id=doc_id)
 
     async def get_by_qdrant_point_id(
@@ -20,7 +22,11 @@ class DocumentService:
         )
 
     async def get_by_repository(
-        self, db: AsyncSession, repository_id: uuid.UUID, skip: int = 0, limit: int = 100
+        self,
+        db: AsyncSession,
+        repository_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[IndexedDocument]:
         return await doc_repo.document.get_by_repository(
             db, repository_id=repository_id, skip=skip, limit=limit

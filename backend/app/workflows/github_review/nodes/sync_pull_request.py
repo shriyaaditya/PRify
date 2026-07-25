@@ -1,15 +1,19 @@
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
+
 from langchain_core.runnables import RunnableConfig
 
-from app.workflows.github_review.state import GitHubReviewState, NormalizedPullRequest
 from app.github.schemas import GitHubPullRequest
 from app.schemas.pull_request import PullRequestCreate, PullRequestUpdate
 from app.schemas.user import UserCreate, UserUpdate
 from app.services.pull_request import pull_request_service
 from app.services.user import user_service
+from app.workflows.github_review.state import GitHubReviewState, NormalizedPullRequest
 
-async def sync_pull_request(state: GitHubReviewState, config: RunnableConfig) -> Dict[str, Any]:
+
+async def sync_pull_request(
+    state: GitHubReviewState, config: RunnableConfig
+) -> Dict[str, Any]:
     """
     Sync the pull request with the database.
     Outputs the normalized pull request context.
@@ -33,16 +37,18 @@ async def sync_pull_request(state: GitHubReviewState, config: RunnableConfig) ->
     try:
         pr_data = GitHubPullRequest(**state.raw_payload["pull_request"])
         repo_id = uuid.UUID(state.repository.id)
-        
+
         # We also want to sync the PR author just in case they don't exist
         author_data = pr_data.user
-        author = await user_service.get_user_by_github_id(db, github_id=str(author_data.id))
+        author = await user_service.get_user_by_github_id(
+            db, github_id=str(author_data.id)
+        )
         if not author:
             user_in = UserCreate(
                 github_id=str(author_data.id),
                 username=author_data.login,
                 avatar_url=author_data.avatar_url,
-                email=author_data.email
+                email=author_data.email,
             )
             author = await user_service.create_user(db, user_in=user_in)
             logs.append(f"Created author {author.username}")
@@ -50,9 +56,11 @@ async def sync_pull_request(state: GitHubReviewState, config: RunnableConfig) ->
             user_update = UserUpdate(
                 username=author_data.login,
                 avatar_url=author_data.avatar_url,
-                email=author_data.email
+                email=author_data.email,
             )
-            author = await user_service.update_user(db, db_user=author, user_in=user_update)
+            author = await user_service.update_user(
+                db, db_user=author, user_in=user_update
+            )
             logs.append(f"Updated author {author.username}")
 
         # Check if PR exists
@@ -60,8 +68,16 @@ async def sync_pull_request(state: GitHubReviewState, config: RunnableConfig) ->
             db, repository_id=repo_id, github_pr_number=pr_data.number
         )
 
-        base_branch = pr_data.base.get("ref", "main") if isinstance(pr_data.base, dict) else "main"
-        head_branch = pr_data.head.get("ref", "feature") if isinstance(pr_data.head, dict) else "feature"
+        base_branch = (
+            pr_data.base.get("ref", "main")
+            if isinstance(pr_data.base, dict)
+            else "main"
+        )
+        head_branch = (
+            pr_data.head.get("ref", "feature")
+            if isinstance(pr_data.head, dict)
+            else "feature"
+        )
 
         if not pr:
             pr_in = PullRequestCreate(
@@ -71,7 +87,7 @@ async def sync_pull_request(state: GitHubReviewState, config: RunnableConfig) ->
                 description=pr_data.body,
                 branch=head_branch,
                 base_branch=base_branch,
-                state=pr_data.state
+                state=pr_data.state,
             )
             pr = await pull_request_service.create_pull_request(db, pr_in=pr_in)
             logs.append(f"Created pull request #{pr.github_pr_number}")
@@ -81,12 +97,16 @@ async def sync_pull_request(state: GitHubReviewState, config: RunnableConfig) ->
                 description=pr_data.body,
                 branch=head_branch,
                 base_branch=base_branch,
-                state=pr_data.state
+                state=pr_data.state,
             )
-            pr = await pull_request_service.update_pull_request(db, db_pr=pr, pr_in=pr_update)
+            pr = await pull_request_service.update_pull_request(
+                db, db_pr=pr, pr_in=pr_update
+            )
             logs.append(f"Synced pull request #{pr.github_pr_number}")
 
-        head_sha_val = pr_data.head.get("sha") if isinstance(pr_data.head, dict) else None
+        head_sha_val = (
+            pr_data.head.get("sha") if isinstance(pr_data.head, dict) else None
+        )
 
         # Create normalized context
         normalized_pr = NormalizedPullRequest(
@@ -99,7 +119,7 @@ async def sync_pull_request(state: GitHubReviewState, config: RunnableConfig) ->
             base_branch=pr.base_branch,
             author_id=str(author.id),
             author_login=author.username,
-            head_sha=head_sha_val
+            head_sha=head_sha_val,
         )
 
         return {"pull_request": normalized_pr, "logs": logs}

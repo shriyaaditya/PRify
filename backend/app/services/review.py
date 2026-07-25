@@ -1,23 +1,31 @@
 import uuid
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.review import Review, ReviewFinding, AgentRun
-from app.schemas.review import (
-    ReviewCreate, ReviewUpdate,
-    ReviewFindingCreate, ReviewFindingUpdate,
-    AgentRunCreate, AgentRunUpdate
-)
+from app.models.review import AgentRun, Review, ReviewFinding
 from app.repositories import review as review_repo
+from app.schemas.review import (
+    AgentRunCreate,
+    AgentRunUpdate,
+    ReviewCreate,
+    ReviewFindingCreate,
+    ReviewUpdate,
+)
 
 
 class ReviewService:
-    async def get_review(self, db: AsyncSession, review_id: uuid.UUID) -> Optional[Review]:
+    async def get_review(
+        self, db: AsyncSession, review_id: uuid.UUID
+    ) -> Optional[Review]:
         return await review_repo.review.get_with_relations(db, id=review_id)
 
     async def get_by_pull_request(
-        self, db: AsyncSession, pull_request_id: uuid.UUID, skip: int = 0, limit: int = 100
+        self,
+        db: AsyncSession,
+        pull_request_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[Review]:
         return await review_repo.review.get_by_pull_request(
             db, pull_request_id=pull_request_id, skip=skip, limit=limit
@@ -39,7 +47,9 @@ class ReviewService:
         return await review_repo.review.update(db, db_obj=db_review, obj_in=review_in)
 
     # --- Review Findings ---
-    async def get_findings(self, db: AsyncSession, review_id: uuid.UUID) -> List[ReviewFinding]:
+    async def get_findings(
+        self, db: AsyncSession, review_id: uuid.UUID
+    ) -> List[ReviewFinding]:
         return await review_repo.review_finding.get_by_review(db, review_id=review_id)
 
     async def create_finding(
@@ -48,7 +58,9 @@ class ReviewService:
         return await review_repo.review_finding.create(db, obj_in=finding_in)
 
     # --- Agent Runs ---
-    async def get_agent_runs(self, db: AsyncSession, review_id: uuid.UUID) -> List[AgentRun]:
+    async def get_agent_runs(
+        self, db: AsyncSession, review_id: uuid.UUID
+    ) -> List[AgentRun]:
         return await review_repo.agent_run.get_by_review(db, review_id=review_id)
 
     async def create_agent_run(
@@ -59,7 +71,9 @@ class ReviewService:
     async def update_agent_run(
         self, db: AsyncSession, db_agent_run: AgentRun, agent_run_in: AgentRunUpdate
     ) -> AgentRun:
-        return await review_repo.agent_run.update(db, db_obj=db_agent_run, obj_in=agent_run_in)
+        return await review_repo.agent_run.update(
+            db, db_obj=db_agent_run, obj_in=agent_run_in
+        )
 
 
 review_service = ReviewService()

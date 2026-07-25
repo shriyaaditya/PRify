@@ -1,10 +1,13 @@
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import String, DateTime
+from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.repository import Repository
 
 
 class User(Base):

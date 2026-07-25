@@ -1,10 +1,13 @@
-from typing import List, Optional, Dict, Any
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field
+
 
 class Finding(BaseModel):
     """
     Represents a single issue, recommendation, or finding discovered by an agent.
     """
+
     title: str
     description: str
     severity: str
@@ -15,18 +18,22 @@ class Finding(BaseModel):
     category: str
     evidence: Optional[str] = None
 
+
 class AgentResult(BaseModel):
     """
     The standardized output format returned by every agent.
     """
+
     agent_name: str
     summary: str
     findings: List[Finding] = Field(default_factory=list)
+
 
 class AgentExecution(BaseModel):
     """
     Captures execution metadata for an agent run.
     """
+
     agent_name: str
     start_time: float
     duration_ms: float

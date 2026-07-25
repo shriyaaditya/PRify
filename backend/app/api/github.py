@@ -1,26 +1,24 @@
 import logging
-import json
-from fastapi import APIRouter, Request, Response, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
+
 from app.github.webhook import verify_signature
-from app.workflows.github_review.graph import graph
-from app.workflows.github_review.state import GitHubReviewState
-from langchain_core.runnables import RunnableConfig
+from app.workflows.github_review.service import process_github_review
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
 @router.post("/webhook")
-async def github_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     """
     Endpoint for receiving GitHub App webhooks.
+    Validates signature and event, schedules background review task, and acknowledges immediately.
     """
     # 1. Read the raw body to verify signature
     body = await request.body()
     signature_header = request.headers.get("X-Hub-Signature-256", "")
-    
+
     if not verify_signature(body, signature_header):
         logger.error("Invalid GitHub webhook signature")
         raise HTTPException(status_code=401, detail="Invalid signature")
@@ -33,6 +31,11 @@ async def github_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         logger.warning("Missing X-GitHub-Event header")
         return Response(status_code=400, content="Missing X-GitHub-Event header")
 
+    # We only process pull_request events in this workflow
+    if event != "pull_request":
+        logger.info(f"Ignoring unhandled GitHub event type: {event}")
+        return {"status": "ignored", "reason": f"Unsupported event type: {event}"}
+
     # 3. Parse JSON payload
     try:
         data = await request.json()
@@ -40,35 +43,28 @@ async def github_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         logger.error(f"Failed to parse JSON body: {e}")
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-    # 4. Initialize Graph State
     action = data.get("action")
+    allowed_actions = {"opened", "synchronize", "reopened"}
+    if action not in allowed_actions:
+        logger.info(f"Ignoring unhandled pull_request action: {action}")
+        return {"status": "ignored", "reason": f"Unsupported action: {action}"}
+
     installation_id = data.get("installation", {}).get("id")
     if installation_id:
         installation_id = str(installation_id)
 
-    initial_state = GitHubReviewState(
+    # 4. Schedule background task with durable values only (no request-scoped objects)
+    background_tasks.add_task(
+        process_github_review,
         event_type=event,
         action=action,
         installation_id=installation_id,
-        raw_payload=data
+        raw_payload=data,
     )
 
-    # 5. Invoke LangGraph Workflow
-    config = RunnableConfig(configurable={"db_session": db})
-    try:
-        final_state = await graph.ainvoke(initial_state, config=config)
-    except Exception as e:
-        logger.exception(f"Error during LangGraph execution: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-    # 6. Evaluate Workflow Results
-    if final_state.get("errors"):
-        logger.error(f"Workflow finished with errors: {final_state['errors']}")
-        # Return 200 so GitHub does not retry continuously on validation/logic failures,
-        # but could also return 400 depending on the design pattern.
-        # Following typical webhook patterns, returning 200 if we successfully processed it,
-        # even if it was a validation rejection or skipping.
-        return {"status": "error", "details": final_state["errors"]}
-
-    return {"status": "ok"}
-
+    logger.info("Successfully scheduled GitHub review background task")
+    return Response(
+        status_code=202,
+        content='{"status": "accepted", "message": "Review workflow scheduled in background"}',
+        media_type="application/json",
+    )

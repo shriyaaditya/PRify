@@ -1,15 +1,16 @@
-import pytest
-import uuid
 import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
+import uuid
+from unittest.mock import AsyncMock, patch
+
+import pytest
 from httpx import Response
 
 from app.agents.consensus.models import ConsensusFinding, ConsensusReviewResult
-from app.parsers.tree_sitter.models import ChangedFile
 from app.github.review_formatter import GitHubReviewFormatter
-from app.services.github.review_publisher import ReviewPublisherService
 from app.models.enums import ReviewStatus
 from app.models.review import Review
+from app.parsers.tree_sitter.models import ChangedFile
+from app.services.github.review_publisher import ReviewPublisherService
 
 
 @pytest.fixture
@@ -27,7 +28,7 @@ def sample_changed_files():
             filepath="src/app.py",
             language="python",
             content="...",
-            patch=patch_content
+            patch=patch_content,
         )
     ]
 
@@ -49,7 +50,7 @@ def sample_consensus_result():
                 file_path="src/app.py",
                 line_number=11,  # Valid line in diff patch
                 evidence="val = validate(data)",
-                source_agents=["SecurityAgent"]
+                source_agents=["SecurityAgent"],
             ),
             ConsensusFinding(
                 title="Invalid Line Finding (Unmapped)",
@@ -63,21 +64,15 @@ def sample_consensus_result():
                 file_path="src/app.py",
                 line_number=999,  # Line 999 does not exist in patch -> must fall back to body
                 evidence="loop logic",
-                source_agents=["PerformanceAgent"]
-            )
-        ]
+                source_agents=["PerformanceAgent"],
+            ),
+        ],
     )
 
 
 def test_is_line_in_diff_conservative():
     """Verify is_line_in_diff returns True ONLY for valid RIGHT-side added or context lines in diff patch."""
-    patch_str = (
-        "@@ -1,4 +1,5 @@\n"
-        " line1\n"
-        "-line2_deleted\n"
-        "+line2_added\n"
-        " line3\n"
-    )
+    patch_str = "@@ -1,4 +1,5 @@\n line1\n-line2_deleted\n+line2_added\n line3\n"
 
     # Line 1 (context line ' line1', starts at 1) -> True
     assert GitHubReviewFormatter.is_line_in_diff(patch_str, 1) is True
@@ -104,8 +99,7 @@ def test_partial_inline_mapping_fallback(sample_consensus_result, sample_changed
     - Both findings are preserved and payload construction succeeds.
     """
     payload = GitHubReviewFormatter.format_github_review_payload(
-        consensus_result=sample_consensus_result,
-        changed_files=sample_changed_files
+        consensus_result=sample_consensus_result, changed_files=sample_changed_files
     )
 
     # Exactly 1 inline comment mapped (for line 11)
@@ -122,13 +116,9 @@ def test_partial_inline_mapping_fallback(sample_consensus_result, sample_changed
 
 def test_zero_findings_clean_review_summary():
     """Verify zero findings produces a clean review summary without fake findings or errors."""
-    empty_result = ConsensusReviewResult(
-        summary="Clean review.",
-        findings=[]
-    )
+    empty_result = ConsensusReviewResult(summary="Clean review.", findings=[])
     payload = GitHubReviewFormatter.format_github_review_payload(
-        consensus_result=empty_result,
-        changed_files=[]
+        consensus_result=empty_result, changed_files=[]
     )
 
     assert len(payload["comments"]) == 0
@@ -139,24 +129,25 @@ def test_github_api_publishing_success(sample_consensus_result, sample_changed_f
     """Verify successful review publishing via GitHub API mock."""
     publisher = ReviewPublisherService()
 
-    mock_resp = Response(
-        status_code=200,
-        json={"id": 987654321, "state": "COMMENTED"}
-    )
+    mock_resp = Response(status_code=200, json={"id": 987654321, "state": "COMMENTED"})
 
-    with patch("app.github.client.GitHubClient.post", new_callable=AsyncMock) as mock_post:
+    with patch(
+        "app.github.client.GitHubClient.post", new_callable=AsyncMock
+    ) as mock_post:
         mock_post.return_value = mock_resp
 
-        res = asyncio.run(publisher.publish_review(
-            installation_id="12345",
-            repo_owner="test-owner",
-            repo_name="test-repo",
-            pr_number=42,
-            pull_request_id=str(uuid.uuid4()),
-            head_sha="abc123def456",
-            consensus_result=sample_consensus_result,
-            changed_files=sample_changed_files
-        ))
+        res = asyncio.run(
+            publisher.publish_review(
+                installation_id="12345",
+                repo_owner="test-owner",
+                repo_name="test-repo",
+                pr_number=42,
+                pull_request_id=str(uuid.uuid4()),
+                head_sha="abc123def456",
+                consensus_result=sample_consensus_result,
+                changed_files=sample_changed_files,
+            )
+        )
 
         assert res["published"] is True
         assert res["github_review_id"] == "987654321"
@@ -169,29 +160,34 @@ def test_github_api_failure_handling(sample_consensus_result, sample_changed_fil
     publisher = ReviewPublisherService()
 
     mock_resp = Response(
-        status_code=403,
-        json={"message": "Resource not accessible by integration"}
+        status_code=403, json={"message": "Resource not accessible by integration"}
     )
 
-    with patch("app.github.client.GitHubClient.post", new_callable=AsyncMock) as mock_post:
+    with patch(
+        "app.github.client.GitHubClient.post", new_callable=AsyncMock
+    ) as mock_post:
         mock_post.return_value = mock_resp
 
-        res = asyncio.run(publisher.publish_review(
-            installation_id="12345",
-            repo_owner="test-owner",
-            repo_name="test-repo",
-            pr_number=42,
-            pull_request_id=str(uuid.uuid4()),
-            head_sha="abc123def456",
-            consensus_result=sample_consensus_result,
-            changed_files=sample_changed_files
-        ))
+        res = asyncio.run(
+            publisher.publish_review(
+                installation_id="12345",
+                repo_owner="test-owner",
+                repo_name="test-repo",
+                pr_number=42,
+                pull_request_id=str(uuid.uuid4()),
+                head_sha="abc123def456",
+                consensus_result=sample_consensus_result,
+                changed_files=sample_changed_files,
+            )
+        )
 
         assert res["published"] is False
         assert "GitHub API review creation failed with HTTP 403" in res["error"]
 
 
-def test_postgresql_idempotency_prevents_duplicate_publishing(sample_consensus_result, sample_changed_files):
+def test_postgresql_idempotency_prevents_duplicate_publishing(
+    sample_consensus_result, sample_changed_files
+):
     """Verify PostgreSQL-based idempotency check skips publishing if a review for (pull_request_id, head_sha) is already COMPLETED."""
     publisher = ReviewPublisherService()
     mock_db = AsyncMock()
@@ -205,24 +201,31 @@ def test_postgresql_idempotency_prevents_duplicate_publishing(sample_consensus_r
         pull_request_id=pr_uuid,
         commit_sha=commit_sha,
         status=ReviewStatus.COMPLETED,
-        github_review_id="review_112233"
+        github_review_id="review_112233",
     )
 
-    with patch("app.services.review.review_service.get_by_pull_request_and_commit_sha", new_callable=AsyncMock) as mock_get:
+    with patch(
+        "app.services.review.review_service.get_by_pull_request_and_commit_sha",
+        new_callable=AsyncMock,
+    ) as mock_get:
         mock_get.return_value = existing_review
 
-        with patch("app.github.client.GitHubClient.post", new_callable=AsyncMock) as mock_post:
-            res = asyncio.run(publisher.publish_review(
-                installation_id="12345",
-                repo_owner="test-owner",
-                repo_name="test-repo",
-                pr_number=42,
-                pull_request_id=str(pr_uuid),
-                head_sha=commit_sha,
-                consensus_result=sample_consensus_result,
-                changed_files=sample_changed_files,
-                db=mock_db
-            ))
+        with patch(
+            "app.github.client.GitHubClient.post", new_callable=AsyncMock
+        ) as mock_post:
+            res = asyncio.run(
+                publisher.publish_review(
+                    installation_id="12345",
+                    repo_owner="test-owner",
+                    repo_name="test-repo",
+                    pr_number=42,
+                    pull_request_id=str(pr_uuid),
+                    head_sha=commit_sha,
+                    consensus_result=sample_consensus_result,
+                    changed_files=sample_changed_files,
+                    db=mock_db,
+                )
+            )
 
             assert res["published"] is False
             assert res["skipped"] is True

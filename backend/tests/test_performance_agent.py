@@ -1,16 +1,19 @@
-import pytest
-import json
 import asyncio
+import json
 from unittest.mock import AsyncMock
-from pydantic import ValidationError
 
-from app.agents.performance.models import PerformanceFinding, PerformanceReviewResult
-from app.agents.performance.formatter import PerformanceContextFormatter
-from app.agents.performance.agent import PerformanceAgent
+import pytest
+
 from app.agents.base.context import ReviewContext
-from app.workflows.github_review.state import NormalizedRepository, NormalizedPullRequest
-from app.parsers.tree_sitter.models import ChangedFile, Symbol
+from app.agents.performance.agent import PerformanceAgent
+from app.agents.performance.formatter import PerformanceContextFormatter
+from app.agents.performance.models import PerformanceReviewResult
 from app.llm.provider import LLMProvider, LLMResponse
+from app.parsers.tree_sitter.models import ChangedFile, Symbol
+from app.workflows.github_review.state import (
+    NormalizedPullRequest,
+    NormalizedRepository,
+)
 
 
 @pytest.fixture
@@ -22,7 +25,7 @@ def mock_review_context():
         full_name="org/test-repo",
         owner_id="owner-1",
         owner_login="org",
-        default_branch="main"
+        default_branch="main",
     )
     pr = NormalizedPullRequest(
         id="pr-1",
@@ -33,7 +36,7 @@ def mock_review_context():
         head_branch="feature",
         base_branch="main",
         author_id="user-1",
-        author_login="dev"
+        author_login="dev",
     )
     changed_files = [
         ChangedFile(
@@ -41,51 +44,70 @@ def mock_review_context():
             filepath="src/utils/helpers.py",
             language="python",
             content="def format_name(name):\n    return name.strip().title()",
-            patch="def format_name(name):\n    return name.strip().title()"
+            patch="def format_name(name):\n    return name.strip().title()",
         ),
         ChangedFile(
             filename="src/db/user_repo.py",
             filepath="src/db/user_repo.py",
             language="python",
             content="def get_all(user_ids):\n    for uid in user_ids:\n        db.execute('SELECT * FROM users WHERE id = %s', uid)",
-            patch="def get_all(user_ids):\n    for uid in user_ids:\n        db.execute('SELECT * FROM users WHERE id = %s', uid)"
+            patch="def get_all(user_ids):\n    for uid in user_ids:\n        db.execute('SELECT * FROM users WHERE id = %s', uid)",
         ),
     ]
     symbols = [
-        Symbol(name="format_name", kind="function", file_path="src/utils/helpers.py", start_line=1, end_line=2),
-        Symbol(name="get_all", kind="function", file_path="src/db/user_repo.py", start_line=1, end_line=3),
+        Symbol(
+            name="format_name",
+            kind="function",
+            file_path="src/utils/helpers.py",
+            start_line=1,
+            end_line=2,
+        ),
+        Symbol(
+            name="get_all",
+            kind="function",
+            file_path="src/db/user_repo.py",
+            start_line=1,
+            end_line=3,
+        ),
     ]
     return ReviewContext(
         repository=repo,
         pull_request=pr,
         changed_files=changed_files,
         symbol_tables=symbols,
-        retrieved_context=[{"page_content": "Avoid N+1 queries by using bulk SQL operations.", "metadata": {"source": "docs/perf.md"}}]
+        retrieved_context=[
+            {
+                "page_content": "Avoid N+1 queries by using bulk SQL operations.",
+                "metadata": {"source": "docs/perf.md"},
+            }
+        ],
     )
 
 
 def test_performance_review_result_validation():
     """Verify PerformanceReviewResult validates properly and handles optional suggested_fix."""
-    raw_json = json.dumps({
-        "summary": "Found N+1 query issue.",
-        "findings": [
-            {
-                "title": "N+1 Database Query",
-                "category": "N+1 Query",
-                "severity": "High",
-                "confidence": 0.95,
-                "summary": "Database executed inside loop.",
-                "reason": "Loop dispatches N individual queries.",
-                "impact": "High DB latency.",
-                "recommendation": "Use bulk fetch.",
-                "code_evidence": "user_repo.py: line 2 `db.execute(...)`",
-                "docs_evidence": "docs/perf.md: Avoid N+1 queries.",
-                "file_path": "src/db/user_repo.py",
-                "line_number": 2,
-                "suggested_fix": None
-            }
-        ]
-    })
+    raw_json = json.dumps(
+        {
+            "summary": "Found N+1 query issue.",
+            "findings": [
+                {
+                    "title": "N+1 Database Query",
+                    "category": "N+1 Query",
+                    "severity": "High",
+                    "confidence": 0.95,
+                    "summary": "Database executed inside loop.",
+                    "reason": "Loop dispatches N individual queries.",
+                    "impact": "High DB latency.",
+                    "recommendation": "Use bulk fetch.",
+                    "code_evidence": "user_repo.py: line 2 `db.execute(...)`",
+                    "docs_evidence": "docs/perf.md: Avoid N+1 queries.",
+                    "file_path": "src/db/user_repo.py",
+                    "line_number": 2,
+                    "suggested_fix": None,
+                }
+            ],
+        }
+    )
     result = PerformanceReviewResult.model_validate_json(raw_json)
     assert result.summary == "Found N+1 query issue."
     assert len(result.findings) == 1
@@ -95,56 +117,60 @@ def test_performance_review_result_validation():
 
 def test_context_formatter_prioritization_ordering(mock_review_context):
     """Verify PerformanceContextFormatter prioritizes performance-sensitive files first without dropping ordinary files."""
-    formatted = PerformanceContextFormatter.format_for_performance(mock_review_context, max_files=10)
-    
+    formatted = PerformanceContextFormatter.format_for_performance(
+        mock_review_context, max_files=10
+    )
+
     # Both files must be in the formatted output
     assert "src/db/user_repo.py" in formatted
     assert "src/utils/helpers.py" in formatted
-    
+
     # Performance-sensitive file (user_repo.py containing 'db' / 'execute') must appear BEFORE ordinary file (helpers.py)
     pos_perf = formatted.find("src/db/user_repo.py")
     pos_ordinary = formatted.find("src/utils/helpers.py")
-    assert pos_perf < pos_ordinary, "Performance-relevant file should be ordered before ordinary file"
+    assert pos_perf < pos_ordinary, (
+        "Performance-relevant file should be ordered before ordinary file"
+    )
 
 
 def test_confidence_filtering(mock_review_context):
     """Verify findings below the min_confidence_threshold (0.7) are filtered out."""
     mock_llm = AsyncMock(spec=LLMProvider)
-    llm_payload = json.dumps({
-        "summary": "Review complete.",
-        "findings": [
-            {
-                "title": "High confidence issue",
-                "category": "N+1 Query",
-                "severity": "High",
-                "confidence": 0.9,
-                "summary": "Unbounded query loop.",
-                "reason": "Query inside loop.",
-                "impact": "High latency.",
-                "recommendation": "Batch fetch.",
-                "code_evidence": "user_repo.py:2",
-                "file_path": "src/db/user_repo.py",
-                "line_number": 2
-            },
-            {
-                "title": "Low confidence speculation",
-                "category": "High Time Complexity",
-                "severity": "Low",
-                "confidence": 0.4,  # Below 0.7 threshold
-                "summary": "Nested loop on unknown data size.",
-                "reason": "Might be slow if data is large.",
-                "impact": "Uncertain.",
-                "recommendation": "Investigate data bounds.",
-                "code_evidence": "helpers.py:1",
-                "file_path": "src/utils/helpers.py",
-                "line_number": 1
-            }
-        ]
-    })
+    llm_payload = json.dumps(
+        {
+            "summary": "Review complete.",
+            "findings": [
+                {
+                    "title": "High confidence issue",
+                    "category": "N+1 Query",
+                    "severity": "High",
+                    "confidence": 0.9,
+                    "summary": "Unbounded query loop.",
+                    "reason": "Query inside loop.",
+                    "impact": "High latency.",
+                    "recommendation": "Batch fetch.",
+                    "code_evidence": "user_repo.py:2",
+                    "file_path": "src/db/user_repo.py",
+                    "line_number": 2,
+                },
+                {
+                    "title": "Low confidence speculation",
+                    "category": "High Time Complexity",
+                    "severity": "Low",
+                    "confidence": 0.4,  # Below 0.7 threshold
+                    "summary": "Nested loop on unknown data size.",
+                    "reason": "Might be slow if data is large.",
+                    "impact": "Uncertain.",
+                    "recommendation": "Investigate data bounds.",
+                    "code_evidence": "helpers.py:1",
+                    "file_path": "src/utils/helpers.py",
+                    "line_number": 1,
+                },
+            ],
+        }
+    )
     mock_llm.generate.return_value = LLMResponse(
-        content=llm_payload,
-        token_usage={"total_tokens": 150},
-        model_name="gpt-4o"
+        content=llm_payload, token_usage={"total_tokens": 150}, model_name="gpt-4o"
     )
 
     agent = PerformanceAgent(llm_provider=mock_llm, min_confidence_threshold=0.7)
@@ -162,32 +188,32 @@ def test_malformed_llm_response_and_retry(mock_review_context):
     invalid_response = LLMResponse(
         content='{"summary": "incomplete", "findings": [{"title": "bad"}]}',
         token_usage={"total_tokens": 50},
-        model_name="gpt-4o"
+        model_name="gpt-4o",
     )
 
     # Second attempt: valid JSON
-    valid_payload = json.dumps({
-        "summary": "Valid after retry",
-        "findings": [
-            {
-                "title": "Blocking I/O in Async Function",
-                "category": "Blocking Async Call",
-                "severity": "Medium",
-                "confidence": 0.85,
-                "summary": "Synchronous file open in async endpoint.",
-                "reason": "Blocks event loop.",
-                "impact": "Degraded throughput.",
-                "recommendation": "Use aiofiles.",
-                "code_evidence": "main.py:10",
-                "file_path": "main.py",
-                "line_number": 10
-            }
-        ]
-    })
+    valid_payload = json.dumps(
+        {
+            "summary": "Valid after retry",
+            "findings": [
+                {
+                    "title": "Blocking I/O in Async Function",
+                    "category": "Blocking Async Call",
+                    "severity": "Medium",
+                    "confidence": 0.85,
+                    "summary": "Synchronous file open in async endpoint.",
+                    "reason": "Blocks event loop.",
+                    "impact": "Degraded throughput.",
+                    "recommendation": "Use aiofiles.",
+                    "code_evidence": "main.py:10",
+                    "file_path": "main.py",
+                    "line_number": 10,
+                }
+            ],
+        }
+    )
     valid_response = LLMResponse(
-        content=valid_payload,
-        token_usage={"total_tokens": 120},
-        model_name="gpt-4o"
+        content=valid_payload, token_usage={"total_tokens": 120}, model_name="gpt-4o"
     )
 
     mock_llm.generate.side_effect = [invalid_response, valid_response]
@@ -204,14 +230,14 @@ def test_malformed_llm_response_and_retry(mock_review_context):
 def test_negative_case_unsupported_speculation_unreported(mock_review_context):
     """Verify a suspicious-looking pattern (e.g. bounded loop over small constant) produces 0 findings when LLM yields none."""
     mock_llm = AsyncMock(spec=LLMProvider)
-    llm_payload = json.dumps({
-        "summary": "Code reviewed. No performance issues found for small constant iteration.",
-        "findings": []
-    })
+    llm_payload = json.dumps(
+        {
+            "summary": "Code reviewed. No performance issues found for small constant iteration.",
+            "findings": [],
+        }
+    )
     mock_llm.generate.return_value = LLMResponse(
-        content=llm_payload,
-        token_usage={"total_tokens": 100},
-        model_name="gpt-4o"
+        content=llm_payload, token_usage={"total_tokens": 100}, model_name="gpt-4o"
     )
 
     agent = PerformanceAgent(llm_provider=mock_llm)
@@ -224,28 +250,28 @@ def test_negative_case_unsupported_speculation_unreported(mock_review_context):
 def test_non_performance_findings_avoided(mock_review_context):
     """Verify findings category is mapped with performance prefix."""
     mock_llm = AsyncMock(spec=LLMProvider)
-    llm_payload = json.dumps({
-        "summary": "Performance review completed.",
-        "findings": [
-            {
-                "title": "Redundant Computation in Loop",
-                "category": "Redundant Computation",
-                "severity": "Medium",
-                "confidence": 0.8,
-                "summary": "Computing static value inside loop.",
-                "reason": "Re-evaluates constant expression on every iteration.",
-                "impact": "Unnecessary CPU cycles.",
-                "recommendation": "Hoist calculation outside loop.",
-                "code_evidence": "helpers.py:5",
-                "file_path": "src/utils/helpers.py",
-                "line_number": 5
-            }
-        ]
-    })
+    llm_payload = json.dumps(
+        {
+            "summary": "Performance review completed.",
+            "findings": [
+                {
+                    "title": "Redundant Computation in Loop",
+                    "category": "Redundant Computation",
+                    "severity": "Medium",
+                    "confidence": 0.8,
+                    "summary": "Computing static value inside loop.",
+                    "reason": "Re-evaluates constant expression on every iteration.",
+                    "impact": "Unnecessary CPU cycles.",
+                    "recommendation": "Hoist calculation outside loop.",
+                    "code_evidence": "helpers.py:5",
+                    "file_path": "src/utils/helpers.py",
+                    "line_number": 5,
+                }
+            ],
+        }
+    )
     mock_llm.generate.return_value = LLMResponse(
-        content=llm_payload,
-        token_usage={"total_tokens": 110},
-        model_name="gpt-4o"
+        content=llm_payload, token_usage={"total_tokens": 110}, model_name="gpt-4o"
     )
 
     agent = PerformanceAgent(llm_provider=mock_llm)

@@ -1,11 +1,18 @@
-from typing import Optional, List, Dict, Any, Annotated
 import operator
+from typing import Annotated, Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
+
+from app.agents.base.result import AgentExecution, AgentResult
+from app.agents.consensus.models import ConsensusReviewResult
 from app.parsers.tree_sitter.models import (
-    ChangedFile, ParsedFile, Symbol, RepositoryStatistics
+    ChangedFile,
+    ParsedFile,
+    RepositoryStatistics,
+    Symbol,
 )
 from app.schemas.semgrep import SemgrepFinding
-from app.agents.base.result import AgentResult, AgentExecution
+
 
 # Normalized Context Models (Pydantic)
 class NormalizedRepository(BaseModel):
@@ -17,6 +24,7 @@ class NormalizedRepository(BaseModel):
     owner_login: str
     default_branch: str
     installation_id: Optional[str] = None
+
 
 class NormalizedPullRequest(BaseModel):
     id: str
@@ -30,19 +38,19 @@ class NormalizedPullRequest(BaseModel):
     author_login: str
     head_sha: Optional[str] = None
 
-from app.agents.consensus.models import ConsensusReviewResult
 
 # Workflow State Model
 class GitHubReviewState(BaseModel):
     """
     State representing the entire execution of a GitHub Pull Request Review workflow.
     """
+
     # Webhook Data
     event_type: Optional[str] = None
     action: Optional[str] = None
     installation_id: Optional[str] = None
     raw_payload: Dict[str, Any] = Field(default_factory=dict)
-    
+
     # Context ( normalized objects after syncing)
     repository: Optional[NormalizedRepository] = None
     pull_request: Optional[NormalizedPullRequest] = None
@@ -59,14 +67,18 @@ class GitHubReviewState(BaseModel):
     retrieved_context: List[Any] = Field(default_factory=list)
     indexed_documents: List[str] = Field(default_factory=list)
     repository_summary: Optional[str] = None
-    
+
     # Agent Results & Consensus (Phases 7-12)
     ast_data: Optional[Dict[str, Any]] = None
-    agent_results: Annotated[List[AgentResult], operator.add] = Field(default_factory=list)
-    execution_metadata: Annotated[List[AgentExecution], operator.add] = Field(default_factory=list)
+    agent_results: Annotated[List[AgentResult], operator.add] = Field(
+        default_factory=list
+    )
+    execution_metadata: Annotated[List[AgentExecution], operator.add] = Field(
+        default_factory=list
+    )
     consensus_result: Optional[ConsensusReviewResult] = None
     published_review_id: Optional[str] = None
-    
+
     # Execution Tracking
     errors: Annotated[List[str], operator.add] = Field(default_factory=list)
     logs: Annotated[List[str], operator.add] = Field(default_factory=list)

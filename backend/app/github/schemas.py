@@ -1,5 +1,7 @@
-from typing import Optional, Literal
-from pydantic import BaseModel, Field
+from typing import Optional
+
+from pydantic import BaseModel
+
 
 class GitHubUser(BaseModel):
     id: int
@@ -7,12 +9,14 @@ class GitHubUser(BaseModel):
     avatar_url: Optional[str] = None
     email: Optional[str] = None
 
+
 class GitHubRepository(BaseModel):
     id: int
     name: str
     full_name: str
     owner: GitHubUser
     default_branch: str
+
 
 class GitHubPullRequest(BaseModel):
     id: int
@@ -24,8 +28,10 @@ class GitHubPullRequest(BaseModel):
     head: dict
     base: dict
 
+
 class Installation(BaseModel):
     id: int
+
 
 class WebhookPayload(BaseModel):
     action: str

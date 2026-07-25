@@ -1,5 +1,7 @@
-from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field
+from typing import Optional
+
+from pydantic import BaseModel
+
 
 class DocumentMetadata(BaseModel):
     repository: str
@@ -10,10 +12,12 @@ class DocumentMetadata(BaseModel):
     checksum: Optional[str] = None
     section: Optional[str] = None
 
+
 class DocumentChunk(BaseModel):
     id: str
     content: str
     metadata: DocumentMetadata
+
 
 class RetrievedContext(BaseModel):
     content: str

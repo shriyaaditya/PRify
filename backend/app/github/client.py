@@ -1,12 +1,13 @@
 import httpx
-from typing import Any
 
 from app.github.auth import get_installation_access_token
+
 
 class GitHubClient:
     """
     A reusable client for interacting with the GitHub API on behalf of an installation.
     """
+
     def __init__(self, installation_id: str):
         self.installation_id = installation_id
         self.base_url = "https://api.github.com"
@@ -28,7 +29,7 @@ class GitHubClient:
         url = f"{self.base_url}{endpoint}"
         headers = await self.get_headers()
         kwargs["headers"] = {**kwargs.get("headers", {}), **headers}
-        
+
         async with httpx.AsyncClient() as client:
             return await client.get(url, **kwargs)
 
@@ -36,6 +37,6 @@ class GitHubClient:
         url = f"{self.base_url}{endpoint}"
         headers = await self.get_headers()
         kwargs["headers"] = {**kwargs.get("headers", {}), **headers}
-        
+
         async with httpx.AsyncClient() as client:
             return await client.post(url, **kwargs)

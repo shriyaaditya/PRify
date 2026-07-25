@@ -1,12 +1,10 @@
 import uuid
-from typing import Any, Generic, Type, TypeVar, Optional, List
+from typing import Generic, List, Optional, Type, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import NoResultFound
 
 from app.db.base import Base
-
 
 ModelType = TypeVar("ModelType", bound=Base)
 CreateSchemaType = TypeVar("CreateSchemaType")

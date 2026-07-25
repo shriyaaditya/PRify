@@ -1,18 +1,21 @@
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import END, START, StateGraph
 
-from app.workflows.github_review.state import GitHubReviewState
-from app.workflows.github_review.nodes.validate_event import validate_event
-from app.workflows.github_review.nodes.sync_repository import sync_repository
-from app.workflows.github_review.nodes.sync_pull_request import sync_pull_request
-from app.workflows.github_review.nodes.fetch_changed_files import fetch_changed_files
-from app.workflows.github_review.nodes.parse_repository import parse_repository
 from app.workflows.github_review.nodes.analyze_semgrep import analyze_semgrep
+from app.workflows.github_review.nodes.fetch_changed_files import fetch_changed_files
+from app.workflows.github_review.nodes.finish import finish
 from app.workflows.github_review.nodes.index_repository import index_repository
-from app.workflows.github_review.nodes.retrieve_repository_context import retrieve_repository_context
+from app.workflows.github_review.nodes.parse_repository import parse_repository
+from app.workflows.github_review.nodes.publish_review import publish_review
+from app.workflows.github_review.nodes.retrieve_repository_context import (
+    retrieve_repository_context,
+)
 from app.workflows.github_review.nodes.run_agents import run_agents
 from app.workflows.github_review.nodes.run_consensus import run_consensus
-from app.workflows.github_review.nodes.publish_review import publish_review
-from app.workflows.github_review.nodes.finish import finish
+from app.workflows.github_review.nodes.sync_pull_request import sync_pull_request
+from app.workflows.github_review.nodes.sync_repository import sync_repository
+from app.workflows.github_review.nodes.validate_event import validate_event
+from app.workflows.github_review.state import GitHubReviewState
+
 
 def build_graph() -> StateGraph:
     """

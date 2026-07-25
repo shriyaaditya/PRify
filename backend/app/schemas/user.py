@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, HttpUrl, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, HttpUrl
 
 
 class UserBase(BaseModel):

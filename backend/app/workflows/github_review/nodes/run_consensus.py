@@ -1,12 +1,13 @@
-from typing import Dict, Any
 import logging
+from typing import Any, Dict
 
-from app.workflows.github_review.state import GitHubReviewState
-from app.agents.orchestrator.mapper import ContextMapper
 from app.agents.consensus.agent import ConsensusAgent
+from app.agents.orchestrator.mapper import ContextMapper
 from app.llm.openai_provider import OpenAIProvider
+from app.workflows.github_review.state import GitHubReviewState
 
 logger = logging.getLogger(__name__)
+
 
 async def run_consensus(state: GitHubReviewState) -> Dict[str, Any]:
     """
@@ -25,8 +26,7 @@ async def run_consensus(state: GitHubReviewState) -> Dict[str, Any]:
 
         # 3. Consolidate specialist agent results
         consensus_result = await consensus_agent.consolidate(
-            agent_results=state.agent_results,
-            context=context
+            agent_results=state.agent_results, context=context
         )
 
         logger.info(
@@ -35,12 +35,8 @@ async def run_consensus(state: GitHubReviewState) -> Dict[str, Any]:
         )
 
         # 4. Return state update
-        return {
-            "consensus_result": consensus_result
-        }
+        return {"consensus_result": consensus_result}
 
     except Exception as e:
         logger.error(f"Failed to execute Consensus Agent: {e}", exc_info=True)
-        return {
-            "errors": [f"Consensus Agent execution failed: {str(e)}"]
-        }
+        return {"errors": [f"Consensus Agent execution failed: {str(e)}"]}

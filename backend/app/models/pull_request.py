@@ -1,12 +1,16 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import String, DateTime, ForeignKey, Integer, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.repository import Repository
+    from app.models.review import Review
 
 
 class PullRequest(Base):
@@ -18,9 +22,11 @@ class PullRequest(Base):
     branch: Mapped[str] = mapped_column(String)
     base_branch: Mapped[str] = mapped_column(String)
     state: Mapped[str] = mapped_column(String, default="open")
-    
+
     repository_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("repositories.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -33,7 +39,9 @@ class PullRequest(Base):
     )
 
     # Relationships
-    repository: Mapped["Repository"] = relationship("Repository", back_populates="pull_requests")
+    repository: Mapped["Repository"] = relationship(
+        "Repository", back_populates="pull_requests"
+    )
     reviews: Mapped[List["Review"]] = relationship(
         "Review", back_populates="pull_request", cascade="all, delete-orphan"
     )

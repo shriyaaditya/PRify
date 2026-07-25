@@ -1,14 +1,18 @@
 import logging
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from langchain_core.runnables import RunnableConfig
 
-from app.workflows.github_review.state import GitHubReviewState
-from app.parsers.tree_sitter.models import ParsedFile, Symbol, RepositoryStatistics
+from app.parsers.tree_sitter.models import ParsedFile, RepositoryStatistics, Symbol
 from app.services.parser_service import parser_service
+from app.workflows.github_review.state import GitHubReviewState
 
 logger = logging.getLogger(__name__)
 
-async def parse_repository(state: GitHubReviewState, config: RunnableConfig) -> Dict[str, Any]:
+
+async def parse_repository(
+    state: GitHubReviewState, config: RunnableConfig
+) -> Dict[str, Any]:
     """
     LangGraph node: Parse the changed files, extract AST metadata and Symbol tables,
     and update execution stats.
@@ -26,14 +30,16 @@ async def parse_repository(state: GitHubReviewState, config: RunnableConfig) -> 
             "parsed_files": [],
             "symbol_tables": [],
             "languages": [],
-            "repository_statistics": RepositoryStatistics(lines=0, classes=0, functions=0, files_count=0),
-            "logs": logs
+            "repository_statistics": RepositoryStatistics(
+                lines=0, classes=0, functions=0, files_count=0
+            ),
+            "logs": logs,
         }
 
     parsed_files: List[ParsedFile] = []
     all_symbols: List[Symbol] = []
     languages_set = set()
-    
+
     total_lines = 0
     total_classes = 0
     total_functions = 0
@@ -43,10 +49,10 @@ async def parse_repository(state: GitHubReviewState, config: RunnableConfig) -> 
         try:
             logger.info(f"Parsing file: {file.filepath}")
             parsed_file = parser_service.parse_source_code(file.filepath, file.content)
-            
+
             parsed_files.append(parsed_file)
             all_symbols.extend(parsed_file.symbols)
-            
+
             if parsed_file.language != "unknown":
                 languages_set.add(parsed_file.language)
 
@@ -58,8 +64,10 @@ async def parse_repository(state: GitHubReviewState, config: RunnableConfig) -> 
             total_classes += file_classes
             total_functions += file_functions
             parsed_count += 1
-            
-            logs.append(f"Successfully parsed {file.filepath}: lines={file_lines}, classes={file_classes}, functions={file_functions}")
+
+            logs.append(
+                f"Successfully parsed {file.filepath}: lines={file_lines}, classes={file_classes}, functions={file_functions}"
+            )
         except Exception as e:
             logger.error(f"Failed to parse {file.filepath}: {e}")
             logs.append(f"Failed to parse {file.filepath}")
@@ -69,7 +77,7 @@ async def parse_repository(state: GitHubReviewState, config: RunnableConfig) -> 
         lines=total_lines,
         classes=total_classes,
         functions=total_functions,
-        files_count=parsed_count
+        files_count=parsed_count,
     )
 
     return {
@@ -78,5 +86,5 @@ async def parse_repository(state: GitHubReviewState, config: RunnableConfig) -> 
         "languages": list(languages_set),
         "repository_statistics": repository_statistics,
         "errors": errors,
-        "logs": logs
+        "logs": logs,
     }

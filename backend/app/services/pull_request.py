@@ -1,15 +1,17 @@
 import uuid
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.pull_request import PullRequest
-from app.schemas.pull_request import PullRequestCreate, PullRequestUpdate
 from app.repositories import pull_request as pr_repo
+from app.schemas.pull_request import PullRequestCreate, PullRequestUpdate
 
 
 class PullRequestService:
-    async def get_pull_request(self, db: AsyncSession, pr_id: uuid.UUID) -> Optional[PullRequest]:
+    async def get_pull_request(
+        self, db: AsyncSession, pr_id: uuid.UUID
+    ) -> Optional[PullRequest]:
         return await pr_repo.pull_request.get(db, id=pr_id)
 
     async def get_by_github_number(
@@ -20,13 +22,19 @@ class PullRequestService:
         )
 
     async def get_by_repository(
-        self, db: AsyncSession, repository_id: uuid.UUID, skip: int = 0, limit: int = 100
+        self,
+        db: AsyncSession,
+        repository_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[PullRequest]:
         return await pr_repo.pull_request.get_by_repository(
             db, repository_id=repository_id, skip=skip, limit=limit
         )
 
-    async def create_pull_request(self, db: AsyncSession, pr_in: PullRequestCreate) -> PullRequest:
+    async def create_pull_request(
+        self, db: AsyncSession, pr_in: PullRequestCreate
+    ) -> PullRequest:
         return await pr_repo.pull_request.create(db, obj_in=pr_in)
 
     async def update_pull_request(

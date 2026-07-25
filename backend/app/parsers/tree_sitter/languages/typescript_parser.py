@@ -1,15 +1,22 @@
 import logging
-from typing import List, Dict, Any, Optional
-from tree_sitter import Parser, Language, Node
-import tree_sitter_typescript as tstypescript
+from typing import Dict, List, Optional
 
-from app.parsers.tree_sitter.parser import BaseLanguageParser
+import tree_sitter_typescript as tstypescript
+from tree_sitter import Language, Node, Parser
+
 from app.parsers.tree_sitter.models import (
-    ParsedFile, ClassMetadata, FunctionMetadata, MethodMetadata,
-    ImportMetadata, CommentMetadata, Symbol
+    ClassMetadata,
+    CommentMetadata,
+    FunctionMetadata,
+    ImportMetadata,
+    MethodMetadata,
+    ParsedFile,
+    Symbol,
 )
+from app.parsers.tree_sitter.parser import BaseLanguageParser
 
 logger = logging.getLogger(__name__)
+
 
 class TypeScriptParser(BaseLanguageParser):
     def __init__(self, is_tsx: bool = False):
@@ -41,33 +48,38 @@ class TypeScriptParser(BaseLanguageParser):
             if hasattr(node, "children"):
                 for child in node.children:
                     if child.type == "decorator":
-                        dec_text = code_str[child.start_byte:child.end_byte].strip()
+                        dec_text = code_str[child.start_byte : child.end_byte].strip()
                         decorators.append(dec_text)
             return decorators
 
         def traverse(node: Node, parent_class: Optional[str] = None):
             # 1. Imports
             if node.type == "import_statement":
-                text = code_str[node.start_byte:node.end_byte].strip()
-                imports.append(ImportMetadata(
-                    name=text,
-                    line_number=node.start_point[0] + 1
-                ))
+                text = code_str[node.start_byte : node.end_byte].strip()
+                imports.append(
+                    ImportMetadata(name=text, line_number=node.start_point[0] + 1)
+                )
 
             # 2. Comments
             elif node.type == "comment":
-                text = code_str[node.start_byte:node.end_byte].strip()
-                comments.append(CommentMetadata(
-                    content=text,
-                    start_line=node.start_point[0] + 1,
-                    end_line=node.end_point[0] + 1
-                ))
+                text = code_str[node.start_byte : node.end_byte].strip()
+                comments.append(
+                    CommentMetadata(
+                        content=text,
+                        start_line=node.start_point[0] + 1,
+                        end_line=node.end_point[0] + 1,
+                    )
+                )
 
             # 3. Class declaration
             elif node.type in ("class_declaration", "class_expression"):
                 name_node = node.child_by_field_name("name")
-                class_name = code_str[name_node.start_byte:name_node.end_byte] if name_node else "UnknownClass"
-                
+                class_name = (
+                    code_str[name_node.start_byte : name_node.end_byte]
+                    if name_node
+                    else "UnknownClass"
+                )
+
                 class_start = node.start_point[0] + 1
                 class_end = node.end_point[0] + 1
                 decorators = get_decorators(node)
@@ -77,17 +89,19 @@ class TypeScriptParser(BaseLanguageParser):
                     start_line=class_start,
                     end_line=class_end,
                     decorators=decorators,
-                    methods=[]
+                    methods=[],
                 )
                 classes.append(class_meta)
                 class_map[class_name] = class_meta
 
-                symbols.append(Symbol(
-                    name=class_name,
-                    kind="class",
-                    start_line=class_start,
-                    end_line=class_end
-                ))
+                symbols.append(
+                    Symbol(
+                        name=class_name,
+                        kind="class",
+                        start_line=class_start,
+                        end_line=class_end,
+                    )
+                )
 
                 for child in node.children:
                     traverse(child, parent_class=class_name)
@@ -96,74 +110,94 @@ class TypeScriptParser(BaseLanguageParser):
             # 4. Method definition
             elif node.type == "method_definition":
                 name_node = node.child_by_field_name("name")
-                method_name = code_str[name_node.start_byte:name_node.end_byte] if name_node else "UnknownMethod"
-                
+                method_name = (
+                    code_str[name_node.start_byte : name_node.end_byte]
+                    if name_node
+                    else "UnknownMethod"
+                )
+
                 m_start = node.start_point[0] + 1
                 m_end = node.end_point[0] + 1
                 decorators = get_decorators(node)
 
                 if parent_class and parent_class in class_map:
-                    class_map[parent_class].methods.append(MethodMetadata(
-                        name=method_name,
-                        start_line=m_start,
-                        end_line=m_end,
-                        decorators=decorators
-                    ))
-                    symbols.append(Symbol(
-                        name=method_name,
-                        kind="method",
-                        start_line=m_start,
-                        end_line=m_end,
-                        parent=parent_class
-                    ))
+                    class_map[parent_class].methods.append(
+                        MethodMetadata(
+                            name=method_name,
+                            start_line=m_start,
+                            end_line=m_end,
+                            decorators=decorators,
+                        )
+                    )
+                    symbols.append(
+                        Symbol(
+                            name=method_name,
+                            kind="method",
+                            start_line=m_start,
+                            end_line=m_end,
+                            parent=parent_class,
+                        )
+                    )
 
             # 5. Function declarations
             elif node.type == "function_declaration":
                 name_node = node.child_by_field_name("name")
-                func_name = code_str[name_node.start_byte:name_node.end_byte] if name_node else "UnknownFunction"
-                
+                func_name = (
+                    code_str[name_node.start_byte : name_node.end_byte]
+                    if name_node
+                    else "UnknownFunction"
+                )
+
                 f_start = node.start_point[0] + 1
                 f_end = node.end_point[0] + 1
                 decorators = get_decorators(node)
 
-                functions.append(FunctionMetadata(
-                    name=func_name,
-                    start_line=f_start,
-                    end_line=f_end,
-                    decorators=decorators,
-                    is_method=False
-                ))
+                functions.append(
+                    FunctionMetadata(
+                        name=func_name,
+                        start_line=f_start,
+                        end_line=f_end,
+                        decorators=decorators,
+                        is_method=False,
+                    )
+                )
 
-                symbols.append(Symbol(
-                    name=func_name,
-                    kind="function",
-                    start_line=f_start,
-                    end_line=f_end
-                ))
+                symbols.append(
+                    Symbol(
+                        name=func_name,
+                        kind="function",
+                        start_line=f_start,
+                        end_line=f_end,
+                    )
+                )
 
             # 6. Interfaces
             elif node.type == "interface_declaration":
                 name_node = node.child_by_field_name("name")
                 if name_node:
-                    iface_name = code_str[name_node.start_byte:name_node.end_byte]
-                    symbols.append(Symbol(
-                        name=iface_name,
-                        kind="interface",
-                        start_line=node.start_point[0] + 1,
-                        end_line=node.end_point[0] + 1
-                    ))
+                    iface_name = code_str[name_node.start_byte : name_node.end_byte]
+                    symbols.append(
+                        Symbol(
+                            name=iface_name,
+                            kind="interface",
+                            start_line=node.start_point[0] + 1,
+                            end_line=node.end_point[0] + 1,
+                        )
+                    )
 
             # 7. Enums
             elif node.type == "enum_declaration":
                 name_node = node.child_by_field_name("name")
                 if name_node:
-                    enum_name = code_str[name_node.start_byte:name_node.end_byte]
-                    symbols.append(Symbol(
-                        name=enum_name,
-                        kind="enum",
-                        start_line=node.start_point[0] + 1,
-                        end_line=node.end_point[0] + 1
-                    ))
+                    enum_name = code_str[name_node.start_byte : name_node.end_byte]
+                    symbols.append(
+                        Symbol(
+                            name=enum_name,
+                            kind="enum",
+                            start_line=node.start_point[0] + 1,
+                            end_line=node.end_point[0] + 1,
+                        )
+                    )
 
             # 8. Exports
             elif node.type == "export_statement":
@@ -181,7 +215,7 @@ class TypeScriptParser(BaseLanguageParser):
         statistics = {
             "lines": total_lines,
             "classes": len(classes),
-            "functions": len(functions) + sum(len(c.methods) for c in classes)
+            "functions": len(functions) + sum(len(c.methods) for c in classes),
         }
 
         return ParsedFile(
@@ -192,5 +226,5 @@ class TypeScriptParser(BaseLanguageParser):
             imports=imports,
             comments=comments,
             statistics=statistics,
-            symbols=symbols
+            symbols=symbols,
         )

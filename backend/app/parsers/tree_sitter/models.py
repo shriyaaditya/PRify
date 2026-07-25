@@ -1,15 +1,19 @@
-from typing import Optional, List, Dict, Any
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field
+
 
 class ImportMetadata(BaseModel):
     name: str
     source: Optional[str] = None
     line_number: int
 
+
 class CommentMetadata(BaseModel):
     content: str
     start_line: int
     end_line: int
+
 
 class MethodMetadata(BaseModel):
     name: str
@@ -17,12 +21,14 @@ class MethodMetadata(BaseModel):
     end_line: int
     decorators: List[str] = Field(default_factory=list)
 
+
 class ClassMetadata(BaseModel):
     name: str
     start_line: int
     end_line: int
     decorators: List[str] = Field(default_factory=list)
     methods: List[MethodMetadata] = Field(default_factory=list)
+
 
 class FunctionMetadata(BaseModel):
     name: str
@@ -32,6 +38,7 @@ class FunctionMetadata(BaseModel):
     is_method: bool = False
     parent_class: Optional[str] = None
 
+
 class Symbol(BaseModel):
     name: str
     kind: str  # class, method, function, interface, enum, etc.
@@ -39,11 +46,13 @@ class Symbol(BaseModel):
     end_line: int
     parent: Optional[str] = None
 
+
 class RepositoryStatistics(BaseModel):
     lines: int = 0
     classes: int = 0
     functions: int = 0
     files_count: int = 0
+
 
 class ChangedFile(BaseModel):
     filename: str
@@ -51,6 +60,7 @@ class ChangedFile(BaseModel):
     language: str
     patch: Optional[str] = None
     content: str
+
 
 class ParsedFile(BaseModel):
     filepath: str

@@ -1,9 +1,11 @@
 import os
 from typing import Any, Dict, List, Optional
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, BaseMessage
 
-from app.llm.provider import LLMProvider, LLMMessage, LLMResponse
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+
+from app.llm.provider import LLMMessage, LLMProvider, LLMResponse
+
 
 class OpenAIProvider(LLMProvider):
     """
@@ -50,7 +52,7 @@ class OpenAIProvider(LLMProvider):
 
         lc_messages = self._convert_messages(messages)
         response = await llm.ainvoke(lc_messages)
-        
+
         # Extract token usage if available
         token_usage = {}
         if hasattr(response, "response_metadata") and response.response_metadata:
@@ -64,6 +66,6 @@ class OpenAIProvider(LLMProvider):
         return LLMResponse(
             content=response.content,
             token_usage=token_usage,
-            cost=None, # LangChain's ainvoke doesn't give cost directly by default without callback
-            model_name=model
+            cost=None,  # LangChain's ainvoke doesn't give cost directly by default without callback
+            model_name=model,
         )

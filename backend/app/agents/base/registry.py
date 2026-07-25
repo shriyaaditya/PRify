@@ -1,11 +1,14 @@
-from typing import Type, Dict, List
+from typing import Dict, Type
+
 from app.agents.base.agent import BaseReviewAgent
+
 
 class AgentRegistry:
     """
     Registry for loading and storing available review agents.
     Stores agent classes rather than instances to enable dependency injection.
     """
+
     _agents: Dict[str, Type[BaseReviewAgent]] = {}
 
     @classmethod

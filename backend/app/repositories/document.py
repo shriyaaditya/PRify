@@ -1,15 +1,17 @@
 import uuid
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import IndexedDocument
-from app.schemas.document import IndexedDocumentCreate, IndexedDocumentUpdate
 from app.repositories.base import BaseRepository
+from app.schemas.document import IndexedDocumentCreate, IndexedDocumentUpdate
 
 
-class IndexedDocumentRepository(BaseRepository[IndexedDocument, IndexedDocumentCreate, IndexedDocumentUpdate]):
+class IndexedDocumentRepository(
+    BaseRepository[IndexedDocument, IndexedDocumentCreate, IndexedDocumentUpdate]
+):
     async def get_by_qdrant_point_id(
         self, db: AsyncSession, *, qdrant_point_id: str
     ) -> Optional[IndexedDocument]:
@@ -18,11 +20,19 @@ class IndexedDocumentRepository(BaseRepository[IndexedDocument, IndexedDocumentC
         return result.scalars().first()
 
     async def get_by_repository(
-        self, db: AsyncSession, *, repository_id: uuid.UUID, skip: int = 0, limit: int = 100
+        self,
+        db: AsyncSession,
+        *,
+        repository_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[IndexedDocument]:
-        stmt = select(self.model).where(
-            self.model.repository_id == repository_id
-        ).offset(skip).limit(limit)
+        stmt = (
+            select(self.model)
+            .where(self.model.repository_id == repository_id)
+            .offset(skip)
+            .limit(limit)
+        )
         result = await db.execute(stmt)
         return list(result.scalars().all())
 

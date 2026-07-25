@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+
 from app.agents.base.context import ReviewContext
 from app.agents.base.result import AgentResult
+
 
 class BaseReviewAgent(ABC):
     """

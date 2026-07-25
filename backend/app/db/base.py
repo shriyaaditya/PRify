@@ -1,7 +1,8 @@
 import uuid
+
 from sqlalchemy import MetaData
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Naming convention for constraints to ensure Alembic can properly autogenerate migrations
 convention = {
@@ -12,8 +13,10 @@ convention = {
     "pk": "pk_%(table_name)s",
 }
 
+
 class Base(DeclarativeBase):
     """Declarative base for all SQLAlchemy models."""
+
     metadata = MetaData(naming_convention=convention)
 
     id: Mapped[uuid.UUID] = mapped_column(
